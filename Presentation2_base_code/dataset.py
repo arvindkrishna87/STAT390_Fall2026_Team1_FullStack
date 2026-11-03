@@ -72,6 +72,7 @@ class StainBagCasePooledFeatureDataset(Dataset):
     def _load_slice_tensor(self, patch_paths: List[str]) -> Tuple[torch.Tensor, List[str]]:
         patch_paths = list(patch_paths)
 
+        """"" commented out since no errors are raised (missing embeddings are due to patch size too small)
         valid_paths = []
         for p in patch_paths:
             if not os.path.isfile(p):
@@ -86,7 +87,8 @@ class StainBagCasePooledFeatureDataset(Dataset):
                 valid_paths.append(p)
 
         patch_paths = valid_paths
-
+        """
+        
         if self.shuffle_patches:
             random.shuffle(patch_paths)
 
