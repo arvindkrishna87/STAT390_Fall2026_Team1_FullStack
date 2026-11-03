@@ -55,7 +55,7 @@ class StainBagCasePooledFeatureDataset(Dataset):
         self.items = []
         for case_id, stain_map in case_dict.items():
             if case_id not in label_map:
-                continue
+                raise KeyError(f"Missing label for case {case_id}")
             norm_map = {k.lower(): v for k, v in stain_map.items()}
             self.items.append((case_id, norm_map))
         self.label_map = label_map
@@ -97,7 +97,6 @@ class StainBagCasePooledFeatureDataset(Dataset):
             fp = self._patch_path_to_feat_path(p)
             if not os.path.isfile(fp):
                 raise FileNotFoundError(f"Missing embedding: {fp}")
-                continue
             try:
                 v = torch.load(fp, map_location="cpu")  # (4096,)
             except Exception as e:
