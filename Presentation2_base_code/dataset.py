@@ -6,9 +6,9 @@ import random
 import torch
 from torch.utils.data import Dataset
 from typing import Dict, List, Any, Optional, Tuple
+from PIL import Image
 
 from config import MODEL_CONFIG
-
 
 class StainBagCasePooledFeatureDataset(Dataset):
     """
@@ -71,6 +71,20 @@ class StainBagCasePooledFeatureDataset(Dataset):
 
     def _load_slice_tensor(self, patch_paths: List[str]) -> Tuple[torch.Tensor, List[str]]:
         patch_paths = list(patch_paths)
+
+        valid_paths = []
+        for p in patch_paths:
+            if not os.path.isfile(p):
+                raise FileNotFoundError(f"Missing patch: {p}")
+            try:
+                with Image.open(p) as img:
+                    width, height = img.size
+                    img.verify()
+            except Exception as e:
+                raise RuntimeError(f"Unreadable patch: {p}") from e
+            if width >= 32 and height >= 32:
+                valid_paths.append(p)
+
         if self.shuffle_patches:
             random.shuffle(patch_paths)
 
@@ -82,8 +96,7 @@ class StainBagCasePooledFeatureDataset(Dataset):
         for p in patch_paths:
             fp = self._patch_path_to_feat_path(p)
             if not os.path.isfile(fp):
-                # print(f"Missing embedding: {fp}")
-                # Tested in CheckMissingEmbeddings: 2,003 are missing
+                raise FileNotFoundError(f"Missing embedding: {fp}")
                 continue
             try:
                 v = torch.load(fp, map_location="cpu")  # (4096,)
