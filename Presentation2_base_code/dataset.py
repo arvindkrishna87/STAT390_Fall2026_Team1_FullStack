@@ -85,6 +85,8 @@ class StainBagCasePooledFeatureDataset(Dataset):
             if width >= 32 and height >= 32:
                 valid_paths.append(p)
 
+        patch_paths = valid_paths
+
         if self.shuffle_patches:
             random.shuffle(patch_paths)
 
