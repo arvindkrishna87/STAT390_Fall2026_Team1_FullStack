@@ -74,6 +74,7 @@ def analyze_attention_weights(model, test_loader, output_dir: str, top_n: int = 
             case_data = batch[0]
             case_id = case_data["case_id"]
             stain_slices = case_data["stain_slices"]
+            patch_filenames = case_data["patch_filenames"]
 
             logits, attention_weights = model(stain_slices, return_attn_weights=True)
 
@@ -95,13 +96,14 @@ def analyze_attention_weights(model, test_loader, output_dir: str, top_n: int = 
             case_summary = analyze_case_attention(
                 case_id=case_id,
                 stain_slices=stain_slices,
+                patch_filenames = patch_filenames,
                 attention_weights=attention_weights,
                 output_dir=attention_dir,
                 top_n=top_n,
             )
             attention_summary.append(case_summary)
 
-            patch_records = compute_effective_patch_attention(case_id, attention_weights)
+            patch_records = compute_effective_patch_attention(case_id, attention_weights, patch_filenames)
             all_patch_records.extend(patch_records)
 
             visualize_case_effective_patches(
@@ -150,6 +152,7 @@ def analyze_attention_weights(model, test_loader, output_dir: str, top_n: int = 
 def analyze_case_attention(
     case_id: Any,
     stain_slices: Dict,
+    patch_filenames: Dict,
     attention_weights: Dict,
     output_dir: str,
     top_n: int = 5,
@@ -191,6 +194,11 @@ def analyze_case_attention(
 
             if len(patch_weights_list) > most_attended_slice_idx:
                 patch_weights = patch_weights_list[most_attended_slice_idx].detach().cpu().numpy()
+                filenames = patch_filenames[stain][most_attended_slice_idx]
+                if len(filenames) != len(patch_weights):
+                    raise ValueError(
+                        f"Patch count mismatch: case {case_id}, "
+                        f"stain {stain}, slice {most_attended_slice_idx}")
                 slice_tensor = _safe_get_slice_tensor(stain_slices, stain, most_attended_slice_idx)
 
                 visualize_patch_attention(
@@ -199,6 +207,7 @@ def analyze_case_attention(
                     slice_idx=most_attended_slice_idx,
                     slice_tensor=slice_tensor,
                     patch_weights=patch_weights,
+                    patch_filenames=filenames,
                     output_dir=patch_attention_dir,
                     top_n=top_n,
                     prefix="top",
@@ -206,6 +215,11 @@ def analyze_case_attention(
 
             if len(patch_weights_list) > least_attended_slice_idx:
                 patch_weights = patch_weights_list[least_attended_slice_idx].detach().cpu().numpy()
+                filenames = patch_filenames[stain][least_attended_slice_idx]
+                if len(filenames) != len(patch_weights):
+                    raise ValueError(
+                        f"Patch count mismatch: case {case_id}, "
+                        f"stain {stain}, slice {least_attended_slice_idx}")
                 slice_tensor = _safe_get_slice_tensor(stain_slices, stain, least_attended_slice_idx)
 
                 visualize_patch_attention(
@@ -214,6 +228,7 @@ def analyze_case_attention(
                     slice_idx=least_attended_slice_idx,
                     slice_tensor=slice_tensor,
                     patch_weights=patch_weights,
+                    patch_filenames=filenames,
                     output_dir=patch_attention_dir,
                     top_n=top_n,
                     prefix="bottom",
@@ -453,6 +468,7 @@ def visualize_patch_attention(
     slice_idx: int,
     slice_tensor: Optional[torch.Tensor],
     patch_weights: np.ndarray,
+    patch_filenames: List[str],
     output_dir: str,
     top_n: int = 5,
     prefix: str = "top",
@@ -486,34 +502,16 @@ def visualize_patch_attention(
         ax.axis("off")
 
         img = None
-        png_path = _lookup_png_for_patch(case_id, stain, slice_idx, int(pidx), PATCH_PNG_DIR)
-        if png_path and os.path.exists(png_path):
-            try:
-                img = Image.open(png_path).convert("RGB")
-                ax.imshow(img)
-            except Exception:
-                img = None
-
-        if img is None and slice_tensor is not None and isinstance(slice_tensor, torch.Tensor):
-            try:
-                if slice_tensor.dim() == 4 and slice_tensor.shape[1] in (1, 3):
-                    patch = slice_tensor[int(pidx)].detach().cpu().numpy()
-                    patch_img = np.transpose(patch, (1, 2, 0))
-                    if patch_img.shape[-1] == 1:
-                        patch_img = patch_img[..., 0]
-                    if patch_img.ndim == 3 and patch_img.shape[-1] == 3:
-                        mean = np.array(IMAGE_CONFIG["normalize_mean"])
-                        std = np.array(IMAGE_CONFIG["normalize_std"])
-                        patch_img = patch_img * std + mean
-                        patch_img = np.clip(patch_img, 0, 1)
-                    ax.imshow(patch_img)
-                elif slice_tensor.dim() == 2:
-                    vec = slice_tensor[int(pidx)].detach().cpu().numpy().astype(np.float32)
-                    _plot_feature_heatmap(ax, vec)
-                else:
-                    ax.text(0.5, 0.5, "Unsupported tensor shape", ha="center", va="center", fontsize=9)
-            except Exception:
-                ax.text(0.5, 0.5, "Render failed", ha="center", va="center", fontsize=9)
+        patch_filename = patch_filenames[int(pidx)]
+        png_path = os.path.join(PATCH_PNG_DIR, os.path.splitext(patch_filename)[0] + ".png")
+        if not os.path.isfile(png_path):
+            raise FileNotFoundError(f"Missing patch image: {png_path}")
+        try:
+            with Image.open(png_path) as img:
+                img.load()
+                ax.imshow(img.convert("RGB"))
+        except Exception as e:
+            raise RuntimeError(f"Failed to load patch image: {png_path}") from e
 
         ax.set_title(f"Patch {int(pidx)}\nW: {patch_weights[int(pidx)]:.4f}", fontsize=10)
 
@@ -551,7 +549,7 @@ def _plot_feature_heatmap(ax, vec: np.ndarray):
 # ---------------------------------------------------------------------
 # Effective patch attention
 # ---------------------------------------------------------------------
-def compute_effective_patch_attention(case_id: Any, attention_weights: Dict) -> List[Dict[str, Any]]:
+def compute_effective_patch_attention(case_id: Any, attention_weights: Dict, patch_filenames: Dict) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
 
     if "case_weights" not in attention_weights or "stain_weights" not in attention_weights:
@@ -580,6 +578,11 @@ def compute_effective_patch_attention(case_id: Any, attention_weights: Dict) -> 
             if patch_w is None:
                 continue
             patch_w = patch_w.detach().cpu()
+            filenames = patch_filenames[stain][slice_idx]
+            if len(filenames) != len(patch_w):
+                raise ValueError(
+                    f"Patch mismatch: case {case_id}, "
+                    f"stain {stain}, slice {slice_idx}")
             if slice_idx >= slice_weights.numel():
                 continue
             slice_attn_value = float(slice_weights[slice_idx].item())
@@ -597,6 +600,7 @@ def compute_effective_patch_attention(case_id: Any, attention_weights: Dict) -> 
                         "slice_attn_weight": slice_attn_value,
                         "stain_attn_weight": stain_attn_value,
                         "effective_weight": effective_value,
+                        "patch_filename": filenames[patch_idx],
                     }
                 )
     return records
@@ -641,36 +645,16 @@ def visualize_case_effective_patches(
 
             img_shown = False
 
-            png_path = _lookup_png_for_patch(case_id, stain, slice_idx, patch_idx, PATCH_PNG_DIR)
-            if png_path and os.path.exists(png_path):
-                try:
-                    img = Image.open(png_path).convert("RGB")
-                    ax.imshow(img)
-                    img_shown = True
-                except Exception:
-                    img_shown = False
-
-            if not img_shown:
-                slice_list = stain_slices.get(stain, []) or []
-                if slice_idx < len(slice_list):
-                    sl = slice_list[slice_idx]
-                    try:
-                        if isinstance(sl, torch.Tensor) and sl.dim() == 4 and patch_idx < sl.shape[0]:
-                            patch = sl[patch_idx].detach().cpu().numpy()
-                            patch_img = np.transpose(patch, (1, 2, 0))
-                            if patch_img.shape[-1] == 3:
-                                mean = np.array(IMAGE_CONFIG["normalize_mean"])
-                                std = np.array(IMAGE_CONFIG["normalize_std"])
-                                patch_img = patch_img * std + mean
-                                patch_img = np.clip(patch_img, 0, 1)
-                            ax.imshow(patch_img)
-                            img_shown = True
-                        elif isinstance(sl, torch.Tensor) and sl.dim() == 2 and patch_idx < sl.shape[0]:
-                            vec = sl[patch_idx].detach().cpu().numpy().astype(np.float32)
-                            _plot_feature_heatmap(ax, vec)
-                            img_shown = True
-                    except Exception:
-                        img_shown = False
+            patch_filename = entry["patch_filename"]
+            png_path = os.path.join(PATCH_PNG_DIR, os.path.splitext(patch_filename)[0] + ".png")
+            if not os.path.isfile(png_path):
+                raise FileNotFoundError(f"Missing patch image: {png_path}")
+            try:
+                with Image.open(png_path) as img:
+                    img.load()
+                    ax.imshow(img.convert("RGB"))
+            except Exception as e:
+                raise RuntimeError(f"Failed to load patch image: {png_path}") from e
 
             eff_weight = entry.get("effective_weight", 0.0)
             ax.set_title(f"{stain} s{slice_idx} p{patch_idx}\nEff: {eff_weight:.4f}", fontsize=9)
@@ -839,6 +823,7 @@ def analyze_top_effective_patches_per_case(
         "effective_weight",
         "true_label",
         "pred_label",
+        "patch_filename",
     ]
 
     with open(csv_path, "w", newline="") as f:

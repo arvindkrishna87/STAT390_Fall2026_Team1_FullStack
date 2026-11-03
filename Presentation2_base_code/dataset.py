@@ -69,7 +69,7 @@ class StainBagCasePooledFeatureDataset(Dataset):
         feat_name = os.path.splitext(fname)[0] + ".pt"
         return os.path.join(self.embeddings_dir, feat_name)
 
-    def _load_slice_tensor(self, patch_paths: List[str]) -> Optional[torch.Tensor]:
+    def _load_slice_tensor(self, patch_paths: List[str]) -> Tuple[torch.Tensor, List[str]]:
         patch_paths = list(patch_paths)
         if self.shuffle_patches:
             random.shuffle(patch_paths)
@@ -78,58 +78,59 @@ class StainBagCasePooledFeatureDataset(Dataset):
             patch_paths = patch_paths[:self.per_slice_cap]
 
         vecs = []
+        filenames = []
         for p in patch_paths:
             fp = self._patch_path_to_feat_path(p)
+            if not os.path.isfile(fp):
+                print(f"Missing embedding: {fp}")
+                continue
             try:
                 v = torch.load(fp, map_location="cpu")  # (4096,)
-                if v is None:
-                    continue
+            except Exception as e:
+                raise RuntimeError(f"Failed to load embedding: {fp}") from e
 
-                # Ensure 1D
-                if v.dim() != 1:
-                    v = v.view(-1)
+            if not isinstance(v, torch.Tensor):
+                raise TypeError(f"Expected tensor in {fp}, got {type(v)}")
 
-                # CRITICAL FIX: cast to float32 (or chosen dtype) so Half embeddings won't crash Float model
-                if v.dtype != self.feature_dtype:
-                    v = v.to(self.feature_dtype)
+            if v.dim() != 1:
+                v = v.reshape(-1)
 
-                vecs.append(v)
-            except Exception:
-                continue
+            v = v.to(self.feature_dtype)
 
-        if len(vecs) == 0:
-            return None
+            vecs.append(v)
+            filenames.append(os.path.basename(p))
 
-        return torch.stack(vecs, dim=0)  # (P, 4096)
+        if not vecs:
+            raise ValueError("Slice has no patches")
+
+        return torch.stack(vecs, dim=0), filenames  # (P, 4096) and list of filenames in the same order
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         case_id, stain_map = self.items[idx]
         label = torch.tensor(self.label_map[case_id], dtype=torch.long)
 
         stain_slices: Dict[str, List[torch.Tensor]] = {}
+        filenames = {}
         for stain in self.stains:
             slice_lists = stain_map.get(stain, []) or []
 
             if self.max_slices_per_stain is not None and len(slice_lists) > self.max_slices_per_stain:
                 slice_lists = slice_lists[:self.max_slices_per_stain]
 
-            tensors_for_stain: List[torch.Tensor] = []
+            tensors_for_stain = []
+            filenames_for_stain = []
             for sl in slice_lists:
                 if not sl:
-                    continue
-                sl_tensor = self._load_slice_tensor(sl)
-
-                if sl_tensor is None:
-                    if self.drop_empty_slices:
-                        # skip empty slice instead of crashing
-                        continue
-                    raise RuntimeError(f"Empty slice encountered in case {case_id}, stain {stain}")
+                    raise ValueError(f"Empty slice: case {case_id}, stain {stain}")
+                sl_tensor, sl_filenames = self._load_slice_tensor(sl)
 
                 tensors_for_stain.append(sl_tensor)
+                filenames_for_stain.append(sl_filenames)
 
             stain_slices[stain] = tensors_for_stain
+            filenames[stain] = filenames_for_stain
 
-        return {"case_id": case_id, "stain_slices": stain_slices, "label": label}
+        return {"case_id": case_id, "stain_slices": stain_slices, "patch_filenames": filenames, "label": label}
 
 
 def case_collate_fn(batch):
