@@ -118,7 +118,7 @@ def analyze_attention_weights(model, test_loader, output_dir: str, top_n: int = 
                 for stain, weights_dict in attention_weights["stain_weights"].items():
                     slice_weights = weights_dict.get("slice_weights", None)
                     if slice_weights is None:
-                        continue
+                        raise ValueError(f"Missing slice weights: case {case_id}, stain {stain}")
                     slice_weights_np = slice_weights.detach().cpu().numpy()
                     for slice_idx, sw in enumerate(slice_weights_np):
                         slice_attention_records.append(
@@ -183,11 +183,11 @@ def analyze_case_attention(
             patch_weights_list = weights_dict.get("patch_weights", [])
 
             if slice_weights is None or len(patch_weights_list) == 0:
-                continue
+                raise ValueError(f"Missing attention weights: case {case_id}, stain {stain}")
 
             slice_weights_np = slice_weights.detach().cpu().numpy()
             if len(slice_weights_np) == 0:
-                continue
+                raise ValueError(f"Empty slice weights: case {case_id}, stain {stain}")
 
             most_attended_slice_idx = int(np.argmax(slice_weights_np))
             least_attended_slice_idx = int(np.argmin(slice_weights_np))
@@ -328,7 +328,7 @@ def _build_pt_index_for_case_stain(
     for f in files:
         sid = _parse_slice_id_from_filename(f)
         if sid is None:
-            continue
+            raise ValueError(f"Cannot parse slice ID from embedding: {f}")
         slice_id_to_files[sid].append(f)
 
     for sid, flist in slice_id_to_files.items():
@@ -399,7 +399,7 @@ def _build_png_index_for_case_stain(
     for f in files:
         sid = _parse_slice_id_from_filename(f)
         if sid is None:
-            continue
+            raise ValueError(f"Cannot parse slice ID from patch: {f}")
         slice_id_to_files[sid].append(f)
 
     for sid, flist in slice_id_to_files.items():
@@ -561,7 +561,7 @@ def compute_effective_patch_attention(case_id: Any, attention_weights: Dict, pat
 
     for stain_idx, stain in enumerate(stain_order):
         if stain not in stain_weights_dict:
-            continue
+            raise KeyError(f"Missing attention weights: case {case_id}, stain {stain}")
 
         weights_dict = stain_weights_dict[stain]
         stain_attn_value = float(case_weights[stain_idx].item())
@@ -570,13 +570,13 @@ def compute_effective_patch_attention(case_id: Any, attention_weights: Dict, pat
         patch_weights_list = weights_dict.get("patch_weights", [])
 
         if slice_weights is None or len(patch_weights_list) == 0:
-            continue
+            raise ValueError(f"Missing attention weights: case {case_id}, stain {stain}")
 
         slice_weights = slice_weights.detach().cpu()
 
         for slice_idx, patch_w in enumerate(patch_weights_list):
             if patch_w is None:
-                continue
+                raise ValueError(f"Missing patch weights: case {case_id}, stain {stain}, slice {slice_idx}")
             patch_w = patch_w.detach().cpu()
             filenames = patch_filenames[stain][slice_idx]
             if len(filenames) != len(patch_w):
@@ -584,7 +584,7 @@ def compute_effective_patch_attention(case_id: Any, attention_weights: Dict, pat
                     f"Patch mismatch: case {case_id}, "
                     f"stain {stain}, slice {slice_idx}")
             if slice_idx >= slice_weights.numel():
-                continue
+                raise ValueError(f"Slice index out of bounds: case {case_id}, stain {stain}, slice {slice_idx}")
             slice_attn_value = float(slice_weights[slice_idx].item())
 
             for patch_idx, pw in enumerate(patch_w):
@@ -712,7 +712,7 @@ def plot_effective_patch_attention_distribution_per_case(
 
     for cid, weights_list in case_to_weights.items():
         if not weights_list:
-            continue
+            raise ValueError(f"No effective patch weights for case {cid}")
 
         weights = np.array(weights_list, dtype=np.float32)
         total_patch_count = len(weights)
@@ -732,7 +732,7 @@ def plot_effective_patch_attention_distribution_per_case(
 
         for center, height, count in zip(bin_centers, normalized_counts, counts):
             if count == 0:
-                continue
+                continue # keep to avoid adding text labels for empty bins
             plt.text(center, height + 0.01, str(count), ha="center", va="bottom", fontsize=8)
 
         title = f"Case {cid} - Effective Patch Attention"
@@ -774,7 +774,7 @@ def analyze_top_effective_patches_per_case(
 
     for cid, recs in case_to_records.items():
         if len(recs) == 0:
-            continue
+            raise ValueError(f"No patch records for case {cid}")
 
         weights = np.array([r["effective_weight"] for r in recs], dtype=np.float32)
         num_case_patches = len(weights)
@@ -879,7 +879,7 @@ def plot_slice_attention_distribution_per_caseandstain(
 
     for cid, stain_dict in case_to_stain_to_weights.items():
         if not stain_dict:
-            continue
+            raise ValueError(f"No stain attention data for case {cid}")
 
         stains = sorted(stain_dict.keys())
         num_stains = len(stains)
@@ -918,7 +918,7 @@ def plot_slice_attention_distribution_per_caseandstain(
                 fontsize=8,
             )
 
-            ax.set_title(f"{stain} (n slices: {n_slices})", fontsize=11)
+            ax.S(f"{stain} (n slices: {n_slices})", fontsize=11)
             ax.set_xlabel("Slice rank (1 = highest attention)", fontsize=9)
             ax.set_ylabel("Slice attention weight", fontsize=9)
             ax.grid(axis="y", alpha=0.3)

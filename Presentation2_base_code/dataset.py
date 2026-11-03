@@ -106,8 +106,11 @@ class StainBagCasePooledFeatureDataset(Dataset):
             if not isinstance(v, torch.Tensor):
                 raise TypeError(f"Expected tensor in {fp}, got {type(v)}")
 
-            if v.dim() != 1:
-                v = v.reshape(-1)
+            if v.shape != (4096,):
+                raise ValueError(f"Invalid embedding shape: {fp}, got {v.shape}")
+
+            if not torch.isfinite(v).all():
+                raise ValueError(f"NaN or Inf in embedding: {fp}")
 
             v = v.to(self.feature_dtype)
 

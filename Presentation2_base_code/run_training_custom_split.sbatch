@@ -32,4 +32,4 @@ python3 main.py \
     --attention_top_n 8 \
     --per_slice_cap 500 \
     --max_slices_per_stain 5 \
-    --load_splits /home/cwh6075/Team1_FullStack/Presentation2_base_code/no_train_val_leakage_splits/data_splits_new_01.npz
+    --load_splits /home/cwh6075/Team1_FullStack/Presentation2_base_code/no_train_val_leakage_splits/data_splits_new_02.npz
