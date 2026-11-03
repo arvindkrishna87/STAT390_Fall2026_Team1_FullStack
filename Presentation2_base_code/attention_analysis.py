@@ -918,7 +918,7 @@ def plot_slice_attention_distribution_per_caseandstain(
                 fontsize=8,
             )
 
-            ax.S(f"{stain} (n slices: {n_slices})", fontsize=11)
+            ax.set_title(f"{stain} (n slices: {n_slices})", fontsize=11)
             ax.set_xlabel("Slice rank (1 = highest attention)", fontsize=9)
             ax.set_ylabel("Slice attention weight", fontsize=9)
             ax.grid(axis="y", alpha=0.3)

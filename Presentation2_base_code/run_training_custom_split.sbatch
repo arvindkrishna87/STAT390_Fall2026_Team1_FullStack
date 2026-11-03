@@ -25,7 +25,7 @@ python3 -m pip install -r /projects/e32998/STAT390_Fall2026/Team6_InstructionalT
 python3 -m pip install --upgrade certifi
 export SSL_CERT_FILE="$(python -m certifi)"
 
-cd /path_to_directory
+cd /home/cwh6075/Team1_FullStack/Presentation2_base_code
 
 python3 main.py \
     --analyze_attention \
