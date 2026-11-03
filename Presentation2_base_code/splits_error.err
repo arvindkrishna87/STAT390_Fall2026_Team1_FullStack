@@ -1,1 +1,44 @@
-ERROR: Could not open requirements file: [Errno 2] No such file or directory: '/path/to/requirements.txt'
+    WARNING: Ignoring invalid distribution ~riton (/home/cwh6075/.local/lib/python3.12/site-packages)
+    WARNING: Skipping triton as it is not installed.
+ERROR: Exception:
+Traceback (most recent call last):
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/cli/base_command.py", line 180, in exc_logging_wrapper
+    status = run_func(*args)
+             ^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/cli/req_command.py", line 248, in wrapper
+    return func(self, options, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/commands/install.py", line 452, in run
+    installed = install_given_reqs(
+                ^^^^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/req/__init__.py", line 67, in install_given_reqs
+    uninstalled_pathset = requirement.uninstall(auto_confirm=True)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/req/req_install.py", line 687, in uninstall
+    uninstalled_pathset.remove(auto_confirm, verbose)
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/req/req_uninstall.py", line 371, in remove
+    dist_name_version = f"{self._dist.raw_name}-{self._dist.version}"
+                                                 ^^^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_internal/metadata/importlib/_dists.py", line 178, in version
+    return parse_version(self._dist.version)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_vendor/packaging/version.py", line 49, in parse
+    return Version(version)
+           ^^^^^^^^^^^^^^^^
+  File "/home/cwh6075/.local/lib/python3.12/site-packages/pip/_vendor/packaging/version.py", line 259, in __init__
+    match = self._regex.search(version)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: expected string or bytes-like object, got 'NoneType'
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+
+[notice] A new release of pip is available: 23.2.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+WARNING: Ignoring invalid distribution ~orch (/home/cwh6075/.local/lib/python3.12/site-packages)
+
+[notice] A new release of pip is available: 23.2.1 -> 26.3
+[notice] To update, run: pip install --upgrade pip
+[2026-11-03T11:38:40.006] error: *** JOB 7050074 ON qnode0101 CANCELLED AT 2026-11-03T11:38:40 DUE to SIGNAL Terminated ***

@@ -82,13 +82,13 @@ class StainBagCasePooledFeatureDataset(Dataset):
         for p in patch_paths:
             fp = self._patch_path_to_feat_path(p)
             if not os.path.isfile(fp):
-                print(f"Missing embedding: {fp}")
+                # print(f"Missing embedding: {fp}")
+                # Tested in CheckMissingEmbeddings: 2,003 are missing
                 continue
             try:
                 v = torch.load(fp, map_location="cpu")  # (4096,)
             except Exception as e:
                 raise RuntimeError(f"Failed to load embedding: {fp}") from e
-
             if not isinstance(v, torch.Tensor):
                 raise TypeError(f"Expected tensor in {fp}, got {type(v)}")
 

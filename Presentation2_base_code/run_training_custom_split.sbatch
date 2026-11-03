@@ -9,7 +9,7 @@
 #SBATCH --output=outputs.out
 #SBATCH --error=errors.err
 #SBATCH --mail-type=ALL                   # Send email on begin, end, and fail
-#SBATCH --mail-user=<email>  # Your NU email
+#SBATCH --mail-user=gracefan2027@u.northwestern.edu  # Your NU email
 
 module purge
 module load python-anaconda3/2019.10
@@ -32,4 +32,4 @@ python3 main.py \
     --attention_top_n 8 \
     --per_slice_cap 500 \
     --max_slices_per_stain 5 \
-    --load_splits /path_to_splits
+    --load_splits /home/cwh6075/Team1_FullStack/Presentation2_base_code/no_train_val_leakage_splits/data_splits_new_01.npz

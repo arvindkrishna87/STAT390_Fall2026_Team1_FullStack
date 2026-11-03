@@ -4,12 +4,12 @@
 #SBATCH --time=00:10:00                    # max run time
 #SBATCH --nodes=1                         # 1 node
 #SBATCH --ntasks=16                        # n nores
-#SBATCH --mem=128G                          # n GB RAM
+#SBATCH --mem=1G                          # n GB RAM
 #SBATCH --job-name=MIL_train              # Job name (no spaces)
 #SBATCH --output=splits_output.out
 #SBATCH --error=splits_error.err
 #SBATCH --mail-type=ALL                   # Send email on begin, end, and fail
-#SBATCH --mail-user=<email>  # Your NU email
+#SBATCH --mail-user=gracefan2027@u.northwestern.edu  # Your NU email
 
 module purge
 module load python-anaconda3/2019.10
@@ -21,15 +21,15 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Start time: $(date)"
 
 # Run training
-python3 -m pip install -r /path/to/requirements.txt
+python3 -m pip install -r /home/cwh6075/Team1_FullStack/Presentation2_base_code/requirements.txt
 python3 -m pip install --upgrade certifi
 export SSL_CERT_FILE="$(python -m certifi)"
 
-cd /path_to_file_directory # path to file directory
+cd /home/cwh6075/Team1_FullStack/Presentation2_base_code # path to file directory
 
 # without loading checkpoints, trying 5 diff train / test splits
 
 python3 make_splits.py \
-    --labels_csv path_to/case_grade_match.csv \
+    --labels_csv /home/cwh6075/Team1_FullStack/Presentation2_base_code/case_grade_match.csv \
     --patches_dir /projects/e32998/patches_benign_split \
-    --save_dir /path_to/no_train_val_leakage_splits # directory where splits are saved to
+    --save_dir /home/cwh6075/Team1_FullStack/Presentation2_base_code/no_train_val_leakage_splits # directory where splits are saved to
