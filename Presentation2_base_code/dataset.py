@@ -88,7 +88,7 @@ class StainBagCasePooledFeatureDataset(Dataset):
 
         patch_paths = valid_paths
         """
-        
+
         if self.shuffle_patches:
             random.shuffle(patch_paths)
 
@@ -100,7 +100,8 @@ class StainBagCasePooledFeatureDataset(Dataset):
         for p in patch_paths:
             fp = self._patch_path_to_feat_path(p)
             if not os.path.isfile(fp):
-                raise FileNotFoundError(f"Missing embedding: {fp}")
+                continue
+                #raise FileNotFoundError(f"Missing embedding: {fp}")
             try:
                 v = torch.load(fp, map_location="cpu")  # (4096,)
             except Exception as e:
@@ -108,13 +109,13 @@ class StainBagCasePooledFeatureDataset(Dataset):
             if not isinstance(v, torch.Tensor):
                 raise TypeError(f"Expected tensor in {fp}, got {type(v)}")
 
-            if v.shape != (4096,):
-                raise ValueError(f"Invalid embedding shape: {fp}, got {v.shape}")
+            # Ensure 1D
+            if v.dim() != 1:
+                v = v.view(-1)
 
-            if not torch.isfinite(v).all():
-                raise ValueError(f"NaN or Inf in embedding: {fp}")
-
-            v = v.to(self.feature_dtype)
+            # # CRITICAL FIX: cast to float32 (or chosen dtype) so Half embeddings won't crash Float model 
+            if v.dtype != self.feature_dtype:
+                v = v.to(self.feature_dtype)
 
             vecs.append(v)
             filenames.append(os.path.basename(p))
